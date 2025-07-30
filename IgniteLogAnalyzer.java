@@ -15,7 +15,7 @@ public class IgniteLogAnalyzer {
     private static final Pattern PORT_PATTERN = Pattern.compile(":(\\d{4,5})\\b");
 
     private static final List<String> KEYWORDS = Arrays.asList(
-        "join", "connect", "TcpDiscovery", "failure", "reconnect", "spi", "cluster", "vmip", "multicast"
+        "join", "connect", "TcpDiscovery", "failure", "reconnect", "spi", "cluster", "vmip", "multicast", "handshake", "exchange"
     );
 
     static class LogEvent {
@@ -35,7 +35,7 @@ public class IgniteLogAnalyzer {
             Matcher matcher = pattern.matcher(input);
             Set<String> results = new HashSet<>();
             while (matcher.find()) {
-                results.add(matcher.group()); // use full match
+                results.add(matcher.group());
             }
             return results;
         }
@@ -78,7 +78,6 @@ public class IgniteLogAnalyzer {
         System.out.println(commonPorts.isEmpty() ? "[-] No shared ports" : "[+] Shared Ports: " + commonPorts);
 
         System.out.println("\n=== Cross-References ===");
-
         for (LogEvent e1 : log1) {
             for (String ip : e1.ips) {
                 if (ips2.contains(ip)) {
@@ -106,6 +105,27 @@ public class IgniteLogAnalyzer {
         log2.forEach(e -> System.out.printf("%s | %s%n", e.time, e.message));
     }
 
+    private static void compareMessages(List<LogEvent> log1, List<LogEvent> log2) {
+        System.out.println("\n=== Message Cross-Match ===");
+
+        for (LogEvent e1 : log1) {
+            for (LogEvent e2 : log2) {
+                boolean sameIp = !Collections.disjoint(e1.ips, e2.ips);
+                boolean sameMessage = e1.message.equalsIgnoreCase(e2.message);
+                boolean mirrorMessage = (
+                    (e1.message.contains("Sent") && e2.message.contains("Received")) ||
+                    (e1.message.contains("Received") && e2.message.contains("Sent"))
+                );
+
+                if (sameIp && (sameMessage || mirrorMessage)) {
+                    System.out.printf("[~] Matched exchange on IP %s%n", e1.ips);
+                    System.out.printf("    ignite1: [%s] %s%n", e1.time, e1.message);
+                    System.out.printf("    ignite2: [%s] %s%n%n", e2.time, e2.message);
+                }
+            }
+        }
+    }
+
     public static void main(String[] args) throws IOException {
         if (args.length != 2) {
             System.out.println("Usage: java IgniteLogAnalyzer <ignite1.log> <ignite2.log>");
@@ -116,5 +136,6 @@ public class IgniteLogAnalyzer {
         List<LogEvent> log2 = parseLog(args[1]);
 
         compareLogs(log1, log2);
+        compareMessages(log1, log2);
     }
 }
