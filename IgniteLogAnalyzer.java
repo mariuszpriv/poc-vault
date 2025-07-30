@@ -8,13 +8,14 @@ import java.util.stream.Collectors;
 public class IgniteLogAnalyzer {
 
     private static final Pattern LOG_PATTERN = Pattern.compile(
-            "(\\d{2}:\\d{2}:\\d{2}\\.\\d{3}) \\[.*?\\] \\w+ .*? - (.*)"
+        "(\\d{2}:\\d{2}:\\d{2}\\.\\d{3}) \\[.*?\\] \\w+ .*? - (.*)"
     );
+
     private static final Pattern IP_PATTERN = Pattern.compile("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b");
     private static final Pattern PORT_PATTERN = Pattern.compile(":(\\d{4,5})\\b");
 
     private static final List<String> KEYWORDS = Arrays.asList(
-            "join", "connect", "TcpDiscovery", "failure", "reconnect", "spi", "cluster", "vmip", "multicast"
+        "join", "connect", "TcpDiscovery", "failure", "reconnect", "spi", "cluster", "vmip", "multicast"
     );
 
     static class LogEvent {
@@ -34,7 +35,7 @@ public class IgniteLogAnalyzer {
             Matcher matcher = pattern.matcher(input);
             Set<String> results = new HashSet<>();
             while (matcher.find()) {
-                results.add(matcher.group(1));
+                results.add(matcher.group()); // use full match
             }
             return results;
         }
@@ -43,6 +44,7 @@ public class IgniteLogAnalyzer {
     private static List<LogEvent> parseLog(String path) throws IOException {
         List<String> lines = Files.readAllLines(Paths.get(path));
         List<LogEvent> events = new ArrayList<>();
+
         for (String line : lines) {
             Matcher matcher = LOG_PATTERN.matcher(line);
             if (matcher.find()) {
@@ -75,6 +77,28 @@ public class IgniteLogAnalyzer {
         System.out.println(commonIps.isEmpty() ? "[-] No shared IPs" : "[+] Shared IPs: " + commonIps);
         System.out.println(commonPorts.isEmpty() ? "[-] No shared ports" : "[+] Shared Ports: " + commonPorts);
 
+        System.out.println("\n=== Cross-References ===");
+
+        for (LogEvent e1 : log1) {
+            for (String ip : e1.ips) {
+                if (ips2.contains(ip)) {
+                    System.out.printf("[!] ignite1 references IP from ignite2: %s at %s | %s%n", ip, e1.time, e1.message);
+                }
+            }
+        }
+
+        for (LogEvent e2 : log2) {
+            for (String ip : e2.ips) {
+                if (ips1.contains(ip)) {
+                    System.out.printf("[!] ignite2 references IP from ignite1: %s at %s | %s%n", ip, e2.time, e2.message);
+                }
+            }
+        }
+
+        for (String port : commonPorts) {
+            System.out.printf("[!] Both logs are using port: %s%n", port);
+        }
+
         System.out.println("\n=== Suspicious Entries in ignite1.log ===");
         log1.forEach(e -> System.out.printf("%s | %s%n", e.time, e.message));
 
@@ -84,7 +108,7 @@ public class IgniteLogAnalyzer {
 
     public static void main(String[] args) throws IOException {
         if (args.length != 2) {
-            System.out.println("Usage: java IgniteLogAnalyzer ignite1.log ignite2.log");
+            System.out.println("Usage: java IgniteLogAnalyzer <ignite1.log> <ignite2.log>");
             return;
         }
 
