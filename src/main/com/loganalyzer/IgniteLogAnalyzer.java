@@ -1,3 +1,5 @@
+package com.loganalyzer;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -7,15 +9,12 @@ import java.util.stream.Collectors;
 
 public class IgniteLogAnalyzer {
 
-    private static final Pattern LOG_PATTERN = Pattern.compile(
-        "(\\d{2}:\\d{2}:\\d{2}\\.\\d{3}) \\[.*?\\] \\w+ .*? - (.*)"
-    );
-
+    private static final Pattern LOG_PATTERN = Pattern.compile("(\\d{2}:\\d{2}:\\d{2}\\.\\d{3}) \\[.*?\\] \\w+ .*? - (.*)");
     private static final Pattern IP_PATTERN = Pattern.compile("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b");
     private static final Pattern PORT_PATTERN = Pattern.compile(":(\\d{4,5})\\b");
 
     private static final List<String> KEYWORDS = Arrays.asList(
-        "join", "connect", "TcpDiscovery", "failure", "reconnect", "spi", "cluster", "vmip", "multicast", "handshake", "exchange"
+            "join", "connect", "TcpDiscovery", "failure", "reconnect", "spi", "cluster", "vmip", "multicast", "handshake", "exchange"
     );
 
     static class LogEvent {
@@ -113,8 +112,8 @@ public class IgniteLogAnalyzer {
                 boolean sameIp = !Collections.disjoint(e1.ips, e2.ips);
                 boolean sameMessage = e1.message.equalsIgnoreCase(e2.message);
                 boolean mirrorMessage = (
-                    (e1.message.contains("Sent") && e2.message.contains("Received")) ||
-                    (e1.message.contains("Received") && e2.message.contains("Sent"))
+                        (e1.message.contains("Sent") && e2.message.contains("Received")) ||
+                                (e1.message.contains("Received") && e2.message.contains("Sent"))
                 );
 
                 if (sameIp && (sameMessage || mirrorMessage)) {
@@ -127,13 +126,14 @@ public class IgniteLogAnalyzer {
     }
 
     public static void main(String[] args) throws IOException {
-        if (args.length != 2) {
-            System.out.println("Usage: java IgniteLogAnalyzer <ignite1.log> <ignite2.log>");
-            return;
-        }
+        String file1 = Objects.requireNonNull(
+                IgniteLogAnalyzer.class.getClassLoader().getResource("ignite1.log")).getPath();
 
-        List<LogEvent> log1 = parseLog(args[0]);
-        List<LogEvent> log2 = parseLog(args[1]);
+        String file2 = Objects.requireNonNull(
+                IgniteLogAnalyzer.class.getClassLoader().getResource("ignite2.log")).getPath();
+
+        List<LogEvent> log1 = parseLog(file1);
+        List<LogEvent> log2 = parseLog(file2);
 
         compareLogs(log1, log2);
         compareMessages(log1, log2);

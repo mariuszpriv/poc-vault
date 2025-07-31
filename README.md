@@ -14,6 +14,6 @@ python ignite_log_analyzer.py
 
 ### How to run: Java version as alternative:
 
-javac IgniteLogAnalyzer.java
-java IgniteLogAnalyzer ignite1.log ignite2.log
+javac com.loganalyzer.IgniteLogAnalyzer.java
+java com.loganalyzer.IgniteLogAnalyzer ignite1.log ignite2.log
 
